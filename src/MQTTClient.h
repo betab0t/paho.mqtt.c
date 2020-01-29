@@ -1193,6 +1193,8 @@ DLLExport void MQTTClient_yield(void);
 DLLExport int MQTTClient_receive(MQTTClient handle, char** topicName, int* topicLen, MQTTClient_message** message,
 		unsigned long timeout);
 
+DLLExport int MQTTClient_receive_from_topic(MQTTClient handle, char* topicName, MQTTClient_message** message);
+
 /**
   * This function frees memory allocated to an MQTT message, including the
   * additional memory allocated to the message payload. The client application

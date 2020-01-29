@@ -598,6 +598,18 @@ static int MQTTClient_deliverMessage(int rc, MQTTClients* m, char** topicName, i
 	return rc;
 }
 
+static int MQTTClient_deliverMessage2(int rc, MQTTClients* m, qEntry* qe, MQTTClient_message** message)
+{
+  FUNC_ENTRY;
+  *message = qe->msg;
+#if !defined(NO_PERSISTENCE)
+  if (m->c->persistence)
+    MQTTPersistence_unpersistQueueEntry(m->c, (MQTTPersistence_qEntry*)qe);
+#endif
+  ListRemove(m->c->messageQueue, qe);
+  FUNC_EXIT_RC(rc);
+  return rc;
+}
 
 /**
  * List callback function for comparing clients by socket
@@ -2527,6 +2539,61 @@ exit:
 	return rc;
 }
 
+static int topicNameCompare(qEntry *qe, void *topicName)
+{
+  return strncmp(topicName, qe->topicName, 0xffff) == 0;
+}
+
+int MQTTClient_receive_from_topic(MQTTClient handle, char* topicName, MQTTClient_message** message)
+{
+  int rc = TCPSOCKET_COMPLETE;
+  START_TIME_TYPE start = MQTTClient_start_clock();
+  unsigned long elapsed = 0L;
+  unsigned long timeout = 100L;
+  MQTTClients* m = handle;
+  ListElement* le = NULL;
+
+  FUNC_ENTRY;
+  if (m == NULL || m->c == NULL
+      || running) /* receive is not meant to be called in a multi-thread environment */
+  {
+    rc = MQTTCLIENT_FAILURE;
+    goto exit;
+  }
+  if (m->c->connected == 0)
+  {
+    rc = MQTTCLIENT_DISCONNECTED;
+    goto exit;
+  }
+
+  *message = NULL;
+
+  elapsed = MQTTClient_elapsed(start);
+  do
+  {
+    int sock = 0;
+    MQTTClient_cycle(&sock, (timeout > elapsed) ? timeout - elapsed : 0L, &rc);
+
+    if (rc == SOCKET_ERROR)
+    {
+      if (ListFindItem(handles, &sock, clientSockCompare) && 	/* find client corresponding to socket */
+          (MQTTClient)(handles->current->content) == handle)
+        break; /* there was an error on the socket we are interested in */
+    }
+    le = ListFindItem(m->c->messageQueue, topicName, topicNameCompare);
+    elapsed = MQTTClient_elapsed(start);
+  }
+  while (elapsed < timeout && le == NULL);
+
+  if ((le != NULL) && ((rc = MQTTClient_deliverMessage2(rc, m, (qEntry*)le->content, message)) == SOCKET_ERROR))
+  {
+    MQTTClient_disconnect_internal(handle, 0);
+  }
+
+  exit:
+  FUNC_EXIT_RC(rc);
+  return rc;
+}
 
 void MQTTClient_yield(void)
 {
