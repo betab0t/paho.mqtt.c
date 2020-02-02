@@ -1193,7 +1193,9 @@ DLLExport void MQTTClient_yield(void);
 DLLExport int MQTTClient_receive(MQTTClient handle, char** topicName, int* topicLen, MQTTClient_message** message,
 		unsigned long timeout);
 
-DLLExport int MQTTClient_receive_from_topic(MQTTClient handle, char* topicName, MQTTClient_message** message);
+DLLExport int MQTTClient_receive_from_topic(MQTTClient handle, const char* topicName, MQTTClient_message** message);
+
+DLLExport int MQTTClient_num_messages_pending(MQTTClient handle);
 
 /**
   * This function frees memory allocated to an MQTT message, including the

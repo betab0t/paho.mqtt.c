@@ -2544,7 +2544,7 @@ static int topicNameCompare(qEntry *qe, void *topicName)
   return strncmp(topicName, qe->topicName, 0xffff) == 0;
 }
 
-int MQTTClient_receive_from_topic(MQTTClient handle, char* topicName, MQTTClient_message** message)
+int MQTTClient_receive_from_topic(MQTTClient handle, const char* topicName, MQTTClient_message** message)
 {
   int rc = TCPSOCKET_COMPLETE;
   START_TIME_TYPE start = MQTTClient_start_clock();
@@ -2589,6 +2589,30 @@ int MQTTClient_receive_from_topic(MQTTClient handle, char* topicName, MQTTClient
   {
     MQTTClient_disconnect_internal(handle, 0);
   }
+
+  exit:
+  FUNC_EXIT_RC(rc);
+  return rc;
+}
+
+int MQTTClient_num_messages_pending(MQTTClient handle)
+{
+  int rc = 0;
+  MQTTClients* m = handle;
+
+  FUNC_ENTRY;
+  if (m == NULL || m->c == NULL
+      || running) /* receive is not meant to be called in a multi-thread environment */
+  {
+    rc = MQTTCLIENT_FAILURE;
+    goto exit;
+  }
+  if (m->c->connected == 0)
+  {
+    rc = MQTTCLIENT_DISCONNECTED;
+    goto exit;
+  }
+  return m->c->messageQueue->count;
 
   exit:
   FUNC_EXIT_RC(rc);
